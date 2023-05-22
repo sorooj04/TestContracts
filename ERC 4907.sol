@@ -24,7 +24,7 @@ interface IERC721TokenReceiver {
     function onERC721Received(address _operator, address _from, uint256 _tokenId, bytes calldata _data) external returns(bytes4);
 }
 
-contract ERC721 /*is IERC721*/ {
+contract ERC721 {
     mapping(address => uint) public _balanceOf;
     mapping(uint => address) public _ownerOf;
     mapping (uint => address) public _approved;
@@ -115,4 +115,43 @@ contract ERC721 /*is IERC721*/ {
 
         emit Transfer(owner, address(0), id);
     }
+}
+
+contract ERC4907 is ERC721 {
+    struct Lessee
+    {
+        address user;
+        uint expires;
+    }
+
+    mapping (uint256  => Lessee) internal lessees;
+
+    event UpdateUser(uint256 indexed tokenId, address indexed user, uint64 expires);
+
+    function setUser(uint256 tokenId, address user, uint64 expires) public virtual{
+        require(user != address(0),"no user");
+        address owner =  _ownerOf[tokenId];
+        require(owner != address(0), " not valid NFT" );
+        require(( msg.sender == owner ||
+                 _isApprovedForAll[owner][msg.sender] ||
+            msg.sender == _approved[tokenId]), "Not Alowed");
+        Lessee storage info =  lessees[tokenId];
+        info.user = user;
+        info.expires = block.timestamp + expires;
+        emit UpdateUser(tokenId, user, expires);
+    }
+
+    function userOf(uint256 tokenId) public view virtual returns(address){
+        if( uint256(lessees[tokenId].expires) >=  block.timestamp){
+            return  lessees[tokenId].user;
+        }
+        else{
+            return address(0);
+        }
+    }
+
+    function userExpires(uint256 tokenId) public view virtual returns(uint256){
+        return lessees[tokenId].expires;
+    }
+
 }
